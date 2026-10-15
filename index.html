@@ -464,6 +464,64 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .answer-review {
+      margin: 29px 0 24px;
+      text-align: left;
+    }
+
+    .answer-review h2 {
+      margin: 0 0 13px;
+      font-size: 1.1rem;
+    }
+
+    .review-summary {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 11px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .review-item {
+      padding: 14px 15px;
+      border: 1px solid var(--panel-border);
+      border-left: 3px solid var(--wrong);
+      border-radius: 11px;
+      background: var(--choice);
+    }
+
+    .review-item[data-result="correct"] { border-left-color: var(--correct); }
+
+    .review-question {
+      margin: 0 0 8px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .review-status {
+      margin: 0 0 5px;
+      color: var(--wrong);
+      font-size: .78rem;
+      font-weight: 750;
+    }
+
+    .review-item[data-result="correct"] .review-status { color: var(--correct); }
+
+    .review-answer, .review-fact {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: .84rem;
+      line-height: 1.5;
+    }
+
+    .review-answer strong { color: var(--text); }
+
     .restart {
       min-height: 47px;
       padding: 0 19px;
@@ -586,6 +644,11 @@
         <h1 id="result-title">Stellar work!</h1>
         <p id="result-copy" class="result-copy"></p>
         <p class="result-score">You scored <strong id="final-score"></strong></p>
+        <section class="answer-review" aria-labelledby="review-heading">
+          <h2 id="review-heading">Answer review</h2>
+          <p id="review-summary" class="review-summary"></p>
+          <ol id="review-list" class="review-list"></ol>
+        </section>
         <button id="restart" class="restart" type="button">Launch another mission <span aria-hidden="true">↗</span></button>
       </div>
     </section>
@@ -669,9 +732,12 @@
     const results = document.querySelector("#results");
     const restartButton = document.querySelector("#restart");
     const continueButton = document.querySelector("#continue");
+    const reviewSummary = document.querySelector("#review-summary");
+    const reviewList = document.querySelector("#review-list");
     let questionIndex = 0;
     let score = 0;
     let answered = false;
+    let answers = Array(questions.length).fill(null);
 
     function renderQuestion() {
       const current = questions[questionIndex];
@@ -706,6 +772,7 @@
       const current = questions[questionIndex];
       const buttons = [...choicesElement.querySelectorAll(".choice")];
       const correct = selectedIndex === current.answer;
+      answers[questionIndex] = selectedIndex;
 
       buttons.forEach((button, index) => {
         button.disabled = true;
@@ -749,6 +816,45 @@
       progressPercent.textContent = "100%";
       progressFill.style.width = "100%";
       document.querySelector("#final-score").textContent = `${score} / ${questions.length}`;
+      const missedCount = questions.length - score;
+      reviewSummary.textContent = missedCount === 0
+        ? "You answered every question correctly. A perfect mission!"
+        : `Review your answers below. ${missedCount} ${missedCount === 1 ? "question was" : "questions were"} missed.`;
+      reviewList.replaceChildren();
+      questions.forEach((current, index) => {
+        const selectedAnswer = answers[index];
+        const correct = selectedAnswer === current.answer;
+        const item = document.createElement("li");
+        item.className = "review-item";
+        item.dataset.result = correct ? "correct" : "wrong";
+
+        const question = document.createElement("p");
+        question.className = "review-question";
+        question.textContent = `${index + 1}. ${current.question}`;
+
+        const status = document.createElement("p");
+        status.className = "review-status";
+        status.textContent = correct ? "Correct" : "Incorrect";
+
+        const yourAnswer = document.createElement("p");
+        yourAnswer.className = "review-answer";
+        const yourAnswerLabel = document.createElement("strong");
+        yourAnswerLabel.textContent = "Your answer: ";
+        yourAnswer.append(yourAnswerLabel, document.createTextNode(current.choices[selectedAnswer]));
+
+        const correctAnswer = document.createElement("p");
+        correctAnswer.className = "review-answer";
+        const correctAnswerLabel = document.createElement("strong");
+        correctAnswerLabel.textContent = "Correct answer: ";
+        correctAnswer.append(correctAnswerLabel, document.createTextNode(current.choices[current.answer]));
+
+        const fact = document.createElement("p");
+        fact.className = "review-fact";
+        fact.textContent = current.fact;
+
+        item.append(question, status, yourAnswer, correctAnswer, fact);
+        reviewList.append(item);
+      });
 
       const reaction = score === questions.length ? "🏆"
         : score >= 7 ? "🚀"
@@ -775,6 +881,7 @@
     function restartQuiz() {
       questionIndex = 0;
       score = 0;
+      answers = Array(questions.length).fill(null);
       scoreElement.textContent = "0";
       results.hidden = true;
       quiz.hidden = false;
